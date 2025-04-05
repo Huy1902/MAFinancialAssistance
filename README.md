@@ -3,6 +3,7 @@
 ## My check list
 
 ### Survey
+
 - Agent: What is?
 - Search Engine: DuckDuckGo
 - RAG
@@ -22,6 +23,7 @@
 - Inject to Finance Tracker project?? (Through Rest API)
 
 ### TODO
+
 - [x] Survey
 - [x] Agent Template
   - [x] Prompt for COT
@@ -31,8 +33,8 @@
   - [ ] Scrap video
   - [ ] Scrap image
 - [ ] Execute code tool
- - [x] Install package
- - [ ] sys execute
+  - [x] Install package
+  - [ ] sys execute
 - [ ] Search Engine
 - [ ] DB Operation
 - [ ] Retrieval relevant document
@@ -43,5 +45,6 @@
 - [ ] Metric
 
 ### Further work
+
 - May I create another agent to critical thinking?
 - Create loop to ensure accuracy
