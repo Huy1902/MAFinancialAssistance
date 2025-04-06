@@ -4,12 +4,15 @@ Scraper for extracting data from a website
 
 
 import re
+from typing import Any
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import requests
 import time
 import os
+
+import tqdm
 
 load_dotenv(override=True)
 
@@ -50,7 +53,7 @@ def rate_limit(url):
     last_request_time[domain] = current_time
 
 
-def scrape(url):
+def scrape(url) -> dict[str, dict[str, Any] | str] | str:
     """
     Scrape the content from the given URL.
     Args:
@@ -93,6 +96,68 @@ def scrape(url):
     except Exception as e:
         print(f"Error scraping {url}: {e}")
 
+def has_video_content(url):
+    """
+    Check if the URL contains video content.
+    Args:
+        url (str): The URL to check.
+    """
+    try:
+        # Get the webpage content
+        response = requests.get(url, verify=False, headers=HEADERS)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Check for common video elements
+        video_elements = (
+            soup.find_all('video') or
+            soup.find_all('iframe', src=lambda x: x and ('youtube.com' in x or 'vimeo.com' in x)) or
+            'youtube.com' in url or
+            'vimeo.com' in url or
+            any(vid_site in url for vid_site in [
+                'dailymotion.com', 'twitter.com', 'tiktok.com',
+                'facebook.com', 'instagram.com', 'reddit.com'
+            ])
+        )
+        return bool(video_elements)
+    except:
+        return False
+    
+def download_file(url):
+    """
+    Download a file from the given URL.
+    Args:
+        url (str): The URL to download from.
+    """
+    try:
+        response = requests.get(
+                url, stream=True, verify=False, headers=HEADERS)
+        response.raise_for_status()
+        total_size = int(response.headers.get('content-length', 0))
+        output_path = output_path or os.path.join(
+            os.getcwd(), os.path.basename(url))
+        if os.path.isdir(output_path):
+            output_path = os.path.join(output_path, os.path.basename(url))
+            
+        with open(output_path, 'wb') as file, tqdm(
+            desc = f"Downloading {os.path.basename(url)}",
+            total=total_size,
+            unit='iB',
+            unit_scale=True,
+            unit_divisor=1024,
+            initial=0
+        ) as progress_bar:
+            for data in response.iter_content(chunk_size=1024):
+                size = file.write(data)
+                progress_bar.update(size)
+                
+        print("File downloaded successfully at", output_path)
+        return f"File downloaded successfully at {output_path}"
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to download file: {e}")
+        return f"Failed to download file: {e}"
+    except IOError as e:
+        print(f"Error while saving file: {e}")
+        return f"Error while saving file: {e}"
 
 if __name__ == "__main__":
     # url = "https://www.vietcombank.com.vn/"

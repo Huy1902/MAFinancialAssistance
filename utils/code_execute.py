@@ -19,9 +19,11 @@ Functions:
 		Extracts package names from the import statements in the provided code and returns them as a set.
 """
 
+import os
 import subprocess
 import sys
-from typing import Dict, Set
+import time
+from typing import Any, Dict, Set
 import re
 
 
@@ -114,6 +116,44 @@ def get_code_from_file(file_path: str) -> str:
 	"""
 	with open(file_path, 'r') as file:
 		return file.read()
+
+def execute_code(code: str, language:str) -> Dict[str, Any]:
+    """
+    Execute the given code in a temporary file.
+    """
+    temp_file = os.path.join(
+        os.getcwd(), f"temp_{int(time.time())}.{'py' if language == 'python' else 'sh'}")
+    try:
+        if language == 'python':
+            required_packages = extract_import(code)
+            if required_packages:
+                installation_results = install_missing_packages(
+                    required_packages)
+                if not all(installation_results.values()):
+                    failed_packages = [
+                        pkg for pkg, success in installation_results.items() if not success]
+                    return {'success': False, 'output': None,
+                            'error': f"Failed to install required packages: {', '.join(failed_packages)}",
+                            'return_code': -1}
+
+        with open(temp_file, 'w') as f:
+            f.write(code)
+        result = subprocess.run(
+            [language, temp_file], capture_output=True, text=True, timeout=30)
+        success = result.returncode == 0
+        print(
+            f"{'Code executed successfully' if success else 'Code execution failed'}")
+        print(f"Result: {result.stdout if success else result.stderr}")
+        return {'success': success, 'output': result.stdout if success else result.stderr,
+                'error': result.stderr if not success else None, 'return_code': result.returncode}
+    except Exception as e:
+        print(f"Code execution error: {e}")
+        return {'success': False, 'output': None, 'error': str(
+            e) + '\nMake sure you only send the command and the code, without anything else in your message',
+            'return_code': -1}
+    finally:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
 if __name__ == "__main__":
 	# Example usage
 	# print(get_code_from_file("scraper.py"))

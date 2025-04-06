@@ -1,23 +1,28 @@
 import datetime
 import json
+import re
 import time
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-
-load_dotenv(override=True)
+from duckduckgo_search import DDGS
 
 
 class SearchAgent:
     def __init__(self):
+        load_dotenv(override=True)
         self.tasks = {}
         self.history = []
         self.stop_processing = False
         self.init_client_llm()
         self.max_retries = int(os.environ.get('MAX_RETRIES'))
         self.retry_delay = int(os.environ.get('RETRY_DELAY'))
+        self.max_search_results = int(os.environ.get('MAX_SEARCH_RESULTS'))
         self.model = os.environ.get('MODEL')
-        self.taks_stopped = False
+        self.task_stopped = False
+        self.global_history = [] # Save content from previous tasks from user
+        self.clear_global_history = False
+        self.max_step = int(os.environ.get('MAX_STEP'))
 
     def init_client_llm(self):
         """
@@ -209,4 +214,96 @@ class SearchAgent:
         else:
             return "NO"
         
+    def search(self, query):
+        results = DDGS().text(query, max_results=self.max_search_results)
+        return results
+    
+    def extract_actions(self, response: str) -> list:
+        """
+        Extracts actions from the response string.
+        Args:
+            response (str): The response string from the LLM.
+        Returns:
+            list: A list of extracted actions.
+        """
+        actions = []
+        pattern = re.compile(
+            r'\{([A-Z_]+)\}(.+?)(?=\{[A-Z_]+\}|$)', re.DOTALL)
+        matches = pattern.findall(response)
+        for type, content in matches:
+            action = f"{{{type}}}{content.strip()}"
+            if action not in actions:
+                actions.append(action)
+        return actions
+        
+        
+    def execute(self, task):
+        if task not in self.tasks:
+            self.tasks[task] = {'previous_actions': [],
+                                'conclusions': [], 'performed_actions': set()}
+
+        task_context = self.tasks[task]
+        if self.clear_global_history:
+            self.global_history = []
+            self.clear_global_history = False
+        previous_actions = task_context['previous_actions'] + \
+            self.global_history
+        self.global_history.append(task_context['previous_actions'])
+        conclusions = task_context['conclusions']
+        performed_actions = task_context['performed_actions']
+        step = 0
+            
+        print(f"Executing task: {task}")
+        
+        while step < self.max_step and not self.task_stopped:
+            step += 1
+            print(f"Step {step} of {self.max_step}")
+            # Stream the response from the LLM
+            full_response = ""
+            for response in self.stream_response(task, previous_actions):
+                full_response += response
+
+            # Extract actions from the response
+            actions = self.extract_actions(full_response)
+            print(f"Extracted actions: {actions}")
+
+            # Check if the task is complete
+            # if self.is_complete(task, actions):
+            #     print("Task is complete.")
+            #     break
+
+            # Execute the actions
+            for action in actions:
+                action_type = action.split(' ')[0][1:-1]
+                if action_type == 'SEARCH':
+                    query = action.split(' ')[1:]
+                    search_results = self.search(' '.join(query))
+                    task_context['previous_actions'].append(search_results)
+                    performed_actions.add(action)
+                    print(f"Performed search: {search_results}")
+                elif action_type == 'SCRAPE':
+                    url = action.split(' ')[1]
+                    scraped_content = self.scrape(url)
+                    task_context['previous_actions'].append(scraped_content)
+                    performed_actions.add(action)
+                    print(f"Scraped content: {scraped_content}")
+                elif action_type == 'EXECUTE_PYTHON':
+                    code = action.split(' ')[1:]
+                    execution_result = self.execute_python(' '.join(code))
+                    task_context['previous_actions'].append(execution_result)
+                    performed_actions.add(action)
+                    print(f"Executed Python code: {execution_result}")
+                elif action_type == 'EXECUTE_BASH':
+                    code = action.split(' ')[1:]
+                    execution_result = self.execute_bash(' '.join(code))
+                    task_context['previous_actions'].append(execution_result)
+                    performed_actions.add(action)
+                    print(f"Executed Bash command: {execution_result}")
+                elif action_type == 'CONCLUDE':
+                    conclusion = self.conclude(task, task_context['previous_actions'])
+                    conclusions.append(conclusion)
+                    task_context['previous_actions'].append(conclusion)
+                    performed_actions.add(action)
+                    print(f"Conclusion: {conclusion}")
                 
+            
