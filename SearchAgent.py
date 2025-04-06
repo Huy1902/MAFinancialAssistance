@@ -6,13 +6,14 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from duckduckgo_search import DDGS
-
+from util.code_execute import execute_code
+from util.scrap import download_file, scrape
 
 class SearchAgent:
     def __init__(self):
         load_dotenv(override=True)
-        self.tasks = {}
-        self.history = []
+        self.tasks = {} # Store tasks and their context
+        self.history = [] # Store the history of actions taken
         self.stop_processing = False
         self.init_client_llm()
         self.max_retries = int(os.environ.get('MAX_RETRIES'))
@@ -23,6 +24,8 @@ class SearchAgent:
         self.global_history = [] # Save content from previous tasks from user
         self.clear_global_history = False
         self.max_step = int(os.environ.get('MAX_STEP'))
+        self.min_choose_results = int(os.environ.get('MIN_CHOOSE_RESULTS'))
+        self.max_choose_results = int(os.environ.get('MAX_CHOOSE_RESULTS'))
 
     def init_client_llm(self):
         """
@@ -274,36 +277,142 @@ class SearchAgent:
 
             # Execute the actions
             for action in actions:
-                action_type = action.split(' ')[0][1:-1]
-                if action_type == 'SEARCH':
-                    query = action.split(' ')[1:]
-                    search_results = self.search(' '.join(query))
-                    task_context['previous_actions'].append(search_results)
-                    performed_actions.add(action)
-                    print(f"Performed search: {search_results}")
-                elif action_type == 'SCRAPE':
-                    url = action.split(' ')[1]
-                    scraped_content = self.scrape(url)
-                    task_context['previous_actions'].append(scraped_content)
-                    performed_actions.add(action)
-                    print(f"Scraped content: {scraped_content}")
-                elif action_type == 'EXECUTE_PYTHON':
-                    code = action.split(' ')[1:]
-                    execution_result = self.execute_python(' '.join(code))
-                    task_context['previous_actions'].append(execution_result)
-                    performed_actions.add(action)
-                    print(f"Executed Python code: {execution_result}")
-                elif action_type == 'EXECUTE_BASH':
-                    code = action.split(' ')[1:]
-                    execution_result = self.execute_bash(' '.join(code))
-                    task_context['previous_actions'].append(execution_result)
-                    performed_actions.add(action)
-                    print(f"Executed Bash command: {execution_result}")
-                elif action_type == 'CONCLUDE':
-                    conclusion = self.conclude(task, task_context['previous_actions'])
-                    conclusions.append(conclusion)
-                    task_context['previous_actions'].append(conclusion)
-                    performed_actions.add(action)
-                    print(f"Conclusion: {conclusion}")
                 
+                performed_actions.add(action)
+                
+                if action.startswith("{CONCLUDE}"):
+                    conclusion = action[11:].strip()
+                    print(f"Conclusion: {conclusion}")
+                    conclusions.append(conclusion)
+                    step = self.max_step
+                    break
+                
+                elif action.startswith("{SEARCH}"):
+                    query = action[8:].strip().split('\n')[0].replace('"', '')
+                    print(f"Searching for: {query}")
+                    search_results = self.search(query)
+                    print(f"Search results: {search_results}")
+                    # Save the search results to the task context
+                    if json.dumps(search_results) not in json.dumps(previous_actions):
+                        previous_actions.append(f"Searched: {search_results}")
+                        previous_actions.append(
+                            f"""Search results: {json.dumps(search_results)}
+                            Select between {self.min_choose_results} to {self.max_choose_results}\
+                                results to scrape.
+                            """)
+                    else:
+                        print("Search results already in previous actions.")
+                
+                elif action.startswith("{SCRAPE}"):
+                    # Extract the URL from the action
+                    match = re.search(r'{SCRAPE}\s*(https?://\S+)', action)
+                    try:
+                        url = match.group
+                        if url.endswith(".pdf"):
+                            # TODO: handle pdf files
+                            pass
+                        
+                        print(f"Scraping URL: {url}")
+                        # Scrape the URL and get the content
+                        result = scrape(url)
+                        if json.dumps(result) not in json.dumps(previous_actions):
+                            previous_actions.append(f"Scraped: {result}")
+                            previous_actions.append(
+                                f"Scraped content: {json.dumps(result)}\
+                                    is this information useful?")
+                        else:
+                            print("Scraped content already in previous actions.")
+                    except Exception as e:
+                        print(f"Error scraping URL: {e}")
+                        # TODO: Handle the error (e.g., log it, retry, etc.)
+                        pass
+                    
+                elif action.startswith("{DOWNLOAD}"):
+                    try:
+                        url = re.search(r'{DOWNLOAD}\s*(https?://\S+)', action).group(1)
+                        print(f"Downloading from URL: {url}")
+                        download_result = download_file(url)
+                        print(f"Download result: {download_result}")
+                        previous_actions.append(f"Downloaded: {url} - {download_result}")
+                    except Exception as e:
+                        print(f"Error downloading file: {e}")
+                        
+                elif action.startswith("{EXECUTE_PYTHON}"):
+                    code = action[16:].strip().removeprefix("```python").removesuffix("```").strip()
+                    print(f"Executing Python code: {code}")
+                    try:
+                        result = execute_code(code, language='python')
+                        print(f"Executed Python code: {code}")
+                        previous_actions.append(
+                            f"Executed Python code: {code} - Result: {result}")
+                    except Exception as e:
+                        print(f"Error executing Python code: {e}")
+                    
+                elif action.startswith("{EXECUTE_BASH}"):
+                    code = action[14:].strip().removeprefix("```bash").removesuffix("```").strip()
+                    print(f"Executing Bash command: {code}")
+                    try:
+                        result = execute_code(code, language='bash')
+                        print(f"Executed Bash command: {code}")
+                        previous_actions.append(
+                            f"Executed Bash command: {code} - Result: {result}")
+                    except Exception as e:
+                        print(f"Error executing Bash command: {e}")
+                        
+            self.tasks[task] = {
+                'previous_actions': previous_actions,
+                'conclusions': conclusions,
+                'performed_actions': performed_actions
+            }
+            self.global_history.extend(previous_actions)
             
+            if self.is_complete(task, previous_actions):
+                print("Task is complete.")
+                break
+        
+        # Check if the task is complete and provide a conclusion
+        if not conclusions:
+            conclusion = self.conclude(task, previous_actions)
+            if conclusion:
+                conclusions.append(conclusion)
+                previous_actions.append(f"Added conclusion: {conclusion}")
+        
+        # Print the conclusions
+        if conclusions:
+            print(f"Conclusions: {conclusions}")
+            for conclusion in conclusions:
+                print(conclusion)
+                
+        return len(conclusions) > 0       
+
+if __name__ == "__main__":
+    agent = SearchAgent()
+    current_task = ""
+    while True:
+        if current_task:
+            print(f"\nCurrent task: {current_task}\nEnter your task (or 'quit' to exit):")
+        else:
+            print("\nEnter your task (or 'quit' to exit):")
+        task_input = input("INPUT: ").strip()
+
+        if task_input.lower() in ['quit', 'exit', 'q']:
+            print("👋 Goodbye!")
+            break
+
+        if not task_input:
+            print("Please enter a valid task.")
+            continue
+
+        task = task_input
+        current_task = task_input
+
+        try:
+            print("\n" + "=" * 50)
+            agent.execute(task)
+            print("=" * 50)
+        except KeyboardInterrupt:
+            print("\n🛑 Task interrupted by user.")
+            continue
+        except Exception as e:
+            print(f"\nError executing task: {e}")
+            continue

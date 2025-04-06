@@ -28,14 +28,13 @@
 - [x] Agent Template
   - [x] Prompt for COT
   - [x] Conclusion and evaluation
-- [ ] scrap tool
+- [x] scrap tool
   - [x] Scrap link
-  - [ ] Scrap video
-  - [ ] Scrap image
-- [ ] Execute code tool
+  - [x] Just download file
+- [x] Execute code tool (no test now 🤡 )
   - [x] Install package
-  - [ ] sys execute
-- [ ] Search Engine
+  - [x] sys execute
+- [x] Search Engine (Quite simple)
 - [ ] DB Operation
 - [ ] Retrieval relevant document
 - [ ] Save relevant document

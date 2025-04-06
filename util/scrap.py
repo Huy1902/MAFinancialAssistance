@@ -12,7 +12,7 @@ import requests
 import time
 import os
 
-import tqdm
+from tqdm import tqdm
 
 load_dotenv(override=True)
 
@@ -122,7 +122,7 @@ def has_video_content(url):
     except:
         return False
     
-def download_file(url):
+def download_file(url: str, output_path=None) -> str:
     """
     Download a file from the given URL.
     Args:
@@ -130,14 +130,14 @@ def download_file(url):
     """
     try:
         response = requests.get(
-                url, stream=True, verify=False, headers=HEADERS)
+            url=url, stream=True, verify=False, headers=HEADERS,timeout=TIME_OUT)
+        # Check if the request was successful
         response.raise_for_status()
         total_size = int(response.headers.get('content-length', 0))
         output_path = output_path or os.path.join(
             os.getcwd(), os.path.basename(url))
         if os.path.isdir(output_path):
             output_path = os.path.join(output_path, os.path.basename(url))
-            
         with open(output_path, 'wb') as file, tqdm(
             desc = f"Downloading {os.path.basename(url)}",
             total=total_size,
@@ -159,7 +159,7 @@ def download_file(url):
         print(f"Error while saving file: {e}")
         return f"Error while saving file: {e}"
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # url = "https://www.vietcombank.com.vn/"
     # url = "https://www.vietcombank"
     # result = scrape(url)

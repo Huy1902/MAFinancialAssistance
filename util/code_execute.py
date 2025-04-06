@@ -154,7 +154,7 @@ def execute_code(code: str, language:str) -> Dict[str, Any]:
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)
-if __name__ == "__main__":
+# if __name__ == "__main__":
 	# Example usage
 	# print(get_code_from_file("scraper.py"))
 	# print(extract_import(get_code_from_file("scraper.py")))
