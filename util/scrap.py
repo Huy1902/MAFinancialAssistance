@@ -8,7 +8,8 @@ from typing import Any
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-import requests
+from flask_socketio import emit
+import stealth_requests as requests
 import time
 import os
 
@@ -63,7 +64,7 @@ def scrape(url) -> dict[str, dict[str, Any] | str] | str:
         rate_limit(url)
 
         # Fetch the content from the URL
-        response = requests.get(url, headers=HEADERS, timeout=TIME_OUT)
+        response = requests.get(url, headers=HEADERS, timeout=TIME_OUT, impersonate="safari")
         response.raise_for_status()  # Raise an error for bad responses
 
         # Parse the content using BeautifulSoup
@@ -77,10 +78,7 @@ def scrape(url) -> dict[str, dict[str, Any] | str] | str:
         text = soup.get_text()
         
         text = re.sub(r'\s+', ' ', text).strip() # normalize whitespace
-        text = re.sub(r'\n+', '\n', text).strip() # normalize newlines
-        text = re.sub(r'\t+', '\t', text).strip() # normalize tabs
         text = re.sub(r'[^\w\s.,;:!?\'\"-]', '', text) # remove special characters
-        text = re.sub(r'\s+', ' ', text).strip() # normalize whitespace
         
         # Truncate to fit context size
         text = " ".join(text.split()[:int(MAX_CONTEXT_SIZE / 8)]) # 1 token approximately 4 character
@@ -91,10 +89,14 @@ def scrape(url) -> dict[str, dict[str, Any] | str] | str:
             if a.text.strip()
         }
         print(f"Scraped {len(links)} links from {url}")
+        emit('receive_message', {'status': 'info',
+             'message': "Scrape successful!"})
         
         return {"text": text, "links": links}
     except Exception as e:
         print(f"Error scraping {url}: {e}")
+        emit('receive_message',
+                {'status': 'error', 'message': f"Error scraping {url}: {e}"})
 
 def has_video_content(url):
     """
@@ -119,7 +121,8 @@ def has_video_content(url):
             ])
         )
         return bool(video_elements)
-    except:
+    except requests.RequestException as e:
+        print(f"Error checking video content: {e}")
         return False
     
 def download_file(url: str, output_path=None) -> str:

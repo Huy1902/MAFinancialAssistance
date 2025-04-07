@@ -2,6 +2,7 @@ import datetime
 import json
 import re
 import time
+from flask_socketio import emit
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -283,6 +284,10 @@ class SearchAgent:
                 if action.startswith("{CONCLUDE}"):
                     conclusion = action[11:].strip()
                     print(f"Conclusion: {conclusion}")
+                    emit('receive_message', {
+                         'status': 'info', 'message': "Here's my conclusion:"})
+                    emit('receive_message', {
+                         'status': 'info', 'message': conclusion})
                     conclusions.append(conclusion)
                     step = self.max_step
                     break
@@ -290,8 +295,12 @@ class SearchAgent:
                 elif action.startswith("{SEARCH}"):
                     query = action[8:].strip().split('\n')[0].replace('"', '')
                     print(f"Searching for: {query}")
+                    emit('receive_message', {
+                         'status': 'info', 'message': f"Searching web for: {query}"})
                     search_results = self.search(query)
                     print(f"Search results: {search_results}")
+                    emit('receive_message', {
+                         'status': 'info', 'message': f"Search results: {search_results}"})
                     # Save the search results to the task context
                     if json.dumps(search_results) not in json.dumps(previous_actions):
                         previous_actions.append(f"Searched: {search_results}")
@@ -307,12 +316,14 @@ class SearchAgent:
                     # Extract the URL from the action
                     match = re.search(r'{SCRAPE}\s*(https?://\S+)', action)
                     try:
-                        url = match.group
+                        url = match.group(1)
                         if url.endswith(".pdf"):
                             # TODO: handle pdf files
                             pass
                         
                         print(f"Scraping URL: {url}")
+                        emit('receive_message', {
+                             'status': 'info', 'message': f"Scraping website: {url}"})
                         # Scrape the URL and get the content
                         result = scrape(url)
                         if json.dumps(result) not in json.dumps(previous_actions):
@@ -324,7 +335,8 @@ class SearchAgent:
                             print("Scraped content already in previous actions.")
                     except Exception as e:
                         print(f"Error scraping URL: {e}")
-                        # TODO: Handle the error (e.g., log it, retry, etc.)
+                        emit('receive_message', {
+                             'status': 'error', 'message': f"Error scraping URL: {e}"})
                         pass
                     
                 elif action.startswith("{DOWNLOAD}"):
@@ -333,16 +345,24 @@ class SearchAgent:
                         print(f"Downloading from URL: {url}")
                         download_result = download_file(url)
                         print(f"Download result: {download_result}")
+                        emit('receive_message',
+                             {'status': 'info', 'message': f"Downloaded: {url} - {download_result}"})
                         previous_actions.append(f"Downloaded: {url} - {download_result}")
                     except Exception as e:
                         print(f"Error downloading file: {e}")
+                        emit('receive_message', {
+                             'status': 'error', 'message': f"Error downloading file: {e}"})
                         
                 elif action.startswith("{EXECUTE_PYTHON}"):
                     code = action[16:].strip().removeprefix("```python").removesuffix("```").strip()
                     print(f"Executing Python code: {code}")
+                    emit('receive_message',
+                        {'status': 'info', 'message': f"Executing Python code:\n```python\n{code}\n```"})
                     try:
                         result = execute_code(code, language='python')
                         print(f"Executed Python code: {code}")
+                        emit('receive_message', {
+                         'status': 'info', 'message': f"Result:\n```markdown\n{result}\n```"})
                         previous_actions.append(
                             f"Executed Python code: {code} - Result: {result}")
                     except Exception as e:
@@ -351,11 +371,15 @@ class SearchAgent:
                 elif action.startswith("{EXECUTE_BASH}"):
                     code = action[14:].strip().removeprefix("```bash").removesuffix("```").strip()
                     print(f"Executing Bash command: {code}")
+                    emit('receive_message', {
+                         'status': 'info', 'message': f"Executing Bash code:\n{code}"})
                     try:
                         result = execute_code(code, language='bash')
                         print(f"Executed Bash command: {code}")
                         previous_actions.append(
                             f"Executed Bash command: {code} - Result: {result}")
+                        emit('receive_message', {
+                         'status': 'info', 'message': f"Result: {result}"})
                     except Exception as e:
                         print(f"Error executing Bash command: {e}")
                         
@@ -368,6 +392,8 @@ class SearchAgent:
             
             if self.is_complete(task, previous_actions):
                 print("Task is complete.")
+                emit('receive_message', {
+                     'status': 'info', 'message': "Task completed successfully!"})
                 break
         
         # Check if the task is complete and provide a conclusion
@@ -382,6 +408,8 @@ class SearchAgent:
             print(f"Conclusions: {conclusions}")
             for conclusion in conclusions:
                 print(conclusion)
+                emit('receive_message', {
+                     'status': 'info', 'message': conclusion})
                 
         return len(conclusions) > 0       
 
@@ -396,7 +424,7 @@ if __name__ == "__main__":
         task_input = input("INPUT: ").strip()
 
         if task_input.lower() in ['quit', 'exit', 'q']:
-            print("👋 Goodbye!")
+            print("Goodbye!")
             break
 
         if not task_input:
@@ -411,7 +439,7 @@ if __name__ == "__main__":
             agent.execute(task)
             print("=" * 50)
         except KeyboardInterrupt:
-            print("\n🛑 Task interrupted by user.")
+            print("\nTask interrupted by user.")
             continue
         except Exception as e:
             print(f"\nError executing task: {e}")
