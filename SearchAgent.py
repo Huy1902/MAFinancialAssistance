@@ -2,13 +2,13 @@ import datetime
 import json
 import re
 import time
-from flask_socketio import emit
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from duckduckgo_search import DDGS
 from util.code_execute import execute_code
 from util.scrap import download_file, scrape
+import streamlit as st
 
 class SearchAgent:
     def __init__(self):
@@ -201,7 +201,7 @@ class SearchAgent:
                 {"role": "system",
                     "content": "You are an AI agent that evaluates task completion."},
                 {"role": "user",
-                    "content": f"Task: {task}\n\nActions taken: {json.dumps(actions)}\n\nHas the task been completed? Respond with 'YES' if completed, 'NO' if not."}
+                    "content": f"Task: {task}\n\nActions taken: {json.dumps(actions)}\n\nHas the task been completed without error? Respond with 'YES' if completed, 'NO' if not."}
             ]
             # print(f"evaluate messages: {messages}")
             for attempt in range(self.max_retries):
@@ -216,7 +216,7 @@ class SearchAgent:
                         raise e
                     time.sleep(self.retry_delay * (attempt + 1))
         else:
-            return "NO"
+            return 
         
     def search(self, query):
         results = DDGS().text(query, max_results=self.max_search_results)
@@ -284,104 +284,122 @@ class SearchAgent:
                 if action.startswith("{CONCLUDE}"):
                     conclusion = action[11:].strip()
                     print(f"Conclusion: {conclusion}")
-                    emit('receive_message', {
-                         'status': 'info', 'message': "Here's my conclusion:"})
-                    emit('receive_message', {
-                         'status': 'info', 'message': conclusion})
+                    st.write("Here is my conclusion:\n")
+                    st.write(f"Conclusion: {conclusion}")
+                    # emit('receive_message', {
+                    #      'status': 'info', 'message': "Here's my conclusion:"})
+                    # emit('receive_message', {
+                    #      'status': 'info', 'message': conclusion})
                     conclusions.append(conclusion)
                     step = self.max_step
                     break
                 
-                elif action.startswith("{SEARCH}"):
-                    query = action[8:].strip().split('\n')[0].replace('"', '')
-                    print(f"Searching for: {query}")
-                    emit('receive_message', {
-                         'status': 'info', 'message': f"Searching web for: {query}"})
-                    search_results = self.search(query)
-                    print(f"Search results: {search_results}")
-                    emit('receive_message', {
-                         'status': 'info', 'message': f"Search results: {search_results}"})
-                    # Save the search results to the task context
-                    if json.dumps(search_results) not in json.dumps(previous_actions):
-                        previous_actions.append(f"Searched: {search_results}")
-                        previous_actions.append(
-                            f"""Search results: {json.dumps(search_results)}
-                            Select between {self.min_choose_results} to {self.max_choose_results}\
-                                results to scrape.
-                            """)
-                    else:
-                        print("Search results already in previous actions.")
+                elif action.startswith("{SEARCH}"): 
+                    with st.spinner("Searching..."):
+                        query = action[8:].strip().split('\n')[0].replace('"', '')
+                        print(f"Searching for: {query}")
+                        st.write(f"Searching for: {query}")
+                        # emit('receive_message', {
+                        #      'status': 'info', 'message': f"Searching web for: {query}"})
+                        search_results = self.search(query)
+                        print(f"Search results: {search_results}")
+                        st.write(f"Search results: {search_results}")
+                        # emit('receive_message', {
+                        #      'status': 'info', 'message': f"Search results: {search_results}"})
+                        # Save the search results to the task context
+                        if json.dumps(search_results) not in json.dumps(previous_actions):
+                            previous_actions.append(f"Searched: {search_results}")
+                            previous_actions.append(
+                                f"""Search results: {json.dumps(search_results)}
+                                Select between {self.min_choose_results} - {self.max_choose_results} results to scrape.
+                                """)
+                        else:
+                            print("Search results already in previous actions.")
                 
                 elif action.startswith("{SCRAPE}"):
                     # Extract the URL from the action
-                    match = re.search(r'{SCRAPE}\s*(https?://\S+)', action)
-                    try:
-                        url = match.group(1)
-                        if url.endswith(".pdf"):
-                            # TODO: handle pdf files
+                    with st.spinner("Scraping..."):
+                        match = re.search(r'{SCRAPE}\s*(https?://\S+)', action)
+                        try:
+                            url = match.group(1)
+                            if url.endswith(".pdf"):
+                                # TODO: handle pdf files
+                                pass
+                            
+                            print(f"Scraping URL: {url}")
+                            st.write(f"Scraping URL: {url}")
+                            # emit('receive_message', {
+                            #      'status': 'info', 'message': f"Scraping website: {url}"})
+                            # Scrape the URL and get the content
+                            result = scrape(url)
+                            if json.dumps(result) not in json.dumps(previous_actions):
+                                previous_actions.append(f"Scraped: {result}")
+                                previous_actions.append(
+                                    f"Scraped content: {json.dumps(result)}\
+                                        is this information useful?")
+                            else:
+                                print("Scraped content already in previous actions.")
+                        except Exception as e:
+                            print(f"Error scraping URL: {e}")
+                            st.warning(f"Error scraping URL: {e}")
+                            # emit('receive_message', {
+                            #      'status': 'error', 'message': f"Error scraping URL: {e}"})
                             pass
-                        
-                        print(f"Scraping URL: {url}")
-                        emit('receive_message', {
-                             'status': 'info', 'message': f"Scraping website: {url}"})
-                        # Scrape the URL and get the content
-                        result = scrape(url)
-                        if json.dumps(result) not in json.dumps(previous_actions):
-                            previous_actions.append(f"Scraped: {result}")
-                            previous_actions.append(
-                                f"Scraped content: {json.dumps(result)}\
-                                    is this information useful?")
-                        else:
-                            print("Scraped content already in previous actions.")
-                    except Exception as e:
-                        print(f"Error scraping URL: {e}")
-                        emit('receive_message', {
-                             'status': 'error', 'message': f"Error scraping URL: {e}"})
-                        pass
                     
                 elif action.startswith("{DOWNLOAD}"):
-                    try:
-                        url = re.search(r'{DOWNLOAD}\s*(https?://\S+)', action).group(1)
-                        print(f"Downloading from URL: {url}")
-                        download_result = download_file(url)
-                        print(f"Download result: {download_result}")
-                        emit('receive_message',
-                             {'status': 'info', 'message': f"Downloaded: {url} - {download_result}"})
-                        previous_actions.append(f"Downloaded: {url} - {download_result}")
-                    except Exception as e:
-                        print(f"Error downloading file: {e}")
-                        emit('receive_message', {
-                             'status': 'error', 'message': f"Error downloading file: {e}"})
+                    with st.spinner("Downloading..."):
+                        try:
+                            url = re.search(r'{DOWNLOAD}\s*(https?://\S+)', action).group(1)
+                            print(f"Downloading from URL: {url}")
+                            download_result = download_file(url)
+                            print(f"Download result: {download_result}")
+                            st.write(f"Downloaded: {url} - {download_result}")
+                            # emit('receive_message',
+                            #      {'status': 'info', 'message': f"Downloaded: {url} - {download_result}"})
+                            previous_actions.append(f"Downloaded: {url} - {download_result}")
+                        except Exception as e:
+                            print(f"Error downloading file: {e}")
+                            st.warning(f"Error downloading file: {e}")
+                            # emit('receive_message', {
+                            #      'status': 'error', 'message': f"Error downloading file: {e}"})
                         
                 elif action.startswith("{EXECUTE_PYTHON}"):
-                    code = action[16:].strip().removeprefix("```python").removesuffix("```").strip()
-                    print(f"Executing Python code: {code}")
-                    emit('receive_message',
-                        {'status': 'info', 'message': f"Executing Python code:\n```python\n{code}\n```"})
-                    try:
-                        result = execute_code(code, language='python')
-                        print(f"Executed Python code: {code}")
-                        emit('receive_message', {
-                         'status': 'info', 'message': f"Result:\n```markdown\n{result}\n```"})
-                        previous_actions.append(
-                            f"Executed Python code: {code} - Result: {result}")
-                    except Exception as e:
-                        print(f"Error executing Python code: {e}")
+                    with st.spinner("Executing Python code..."):
+                        code = action[16:].strip().removeprefix("```python").removesuffix("```").strip()
+                        print(f"Executing Python code: {code}")
+                        st.write(f"Executing Python code:\n```python\n{code}\n```")
+                        # emit('receive_message',
+                        #     {'status': 'info', 'message': f"Executing Python code:\n```python\n{code}\n```"})
+                        try:
+                            result = execute_code(code, language='python')
+                            print(f"Executed Python code: {code}")
+                            st.write(f"Result:\n```markdown\n{result}\n```")
+                            # emit('receive_message', {
+                            #  'status': 'info', 'message': f"Result:\n```markdown\n{result}\n```"})
+                            previous_actions.append(
+                                f"Executed Python code: {code} - Result: {result}")
+                        except Exception as e:
+                            print(f"Error executing Python code: {e}")
+                            st.warning(f"Error executing Python code: {e}")
                     
                 elif action.startswith("{EXECUTE_BASH}"):
-                    code = action[14:].strip().removeprefix("```bash").removesuffix("```").strip()
-                    print(f"Executing Bash command: {code}")
-                    emit('receive_message', {
-                         'status': 'info', 'message': f"Executing Bash code:\n{code}"})
-                    try:
-                        result = execute_code(code, language='bash')
-                        print(f"Executed Bash command: {code}")
-                        previous_actions.append(
-                            f"Executed Bash command: {code} - Result: {result}")
-                        emit('receive_message', {
-                         'status': 'info', 'message': f"Result: {result}"})
-                    except Exception as e:
-                        print(f"Error executing Bash command: {e}")
+                    with st.spinner("Executing Bash command..."):
+                        code = action[14:].strip().removeprefix("```bash").removesuffix("```").strip()
+                        print(f"Executing Bash command: {code}")
+                        st.write(f"Executing Bash code:\n{code}")
+                        # emit('receive_message', {
+                        #      'status': 'info', 'message': f"Executing Bash code:\n{code}"})
+                        try:
+                            result = execute_code(code, language='bash')
+                            print(f"Executed Bash command: {code}")
+                            previous_actions.append(
+                                f"Executed Bash command: {code} - Result: {result}")
+                            st.write(f"Executed Bash command result: {result}")
+                            # emit('receive_message', {
+                            #  'status': 'info', 'message': f"Result: {result}"})
+                        except Exception as e:
+                            st.warning(f"Error executing Bash command: {e}")
+                            print(f"Error executing Bash command: {e}")
                         
             self.tasks[task] = {
                 'previous_actions': previous_actions,
@@ -392,8 +410,9 @@ class SearchAgent:
             
             if self.is_complete(task, previous_actions):
                 print("Task is complete.")
-                emit('receive_message', {
-                     'status': 'info', 'message': "Task completed successfully!"})
+                st.write("Task is complete.")
+                # emit('receive_message', {
+                #      'status': 'info', 'message': "Task completed successfully!"})
                 break
         
         # Check if the task is complete and provide a conclusion
@@ -405,11 +424,13 @@ class SearchAgent:
         
         # Print the conclusions
         if conclusions:
+            st.write("Here is my conclusion:\n")
             print(f"Conclusions: {conclusions}")
             for conclusion in conclusions:
                 print(conclusion)
-                emit('receive_message', {
-                     'status': 'info', 'message': conclusion})
+                st.write(f"Conclusion: {conclusion}")
+                # emit('receive_message', {
+                #      'status': 'info', 'message': conclusion})
                 
         return len(conclusions) > 0       
 

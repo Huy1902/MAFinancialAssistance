@@ -89,14 +89,14 @@ def scrape(url) -> dict[str, dict[str, Any] | str] | str:
             if a.text.strip()
         }
         print(f"Scraped {len(links)} links from {url}")
-        emit('receive_message', {'status': 'info',
-             'message': "Scrape successful!"})
+        # emit('receive_message', {'status': 'info',
+        #      'message': "Scrape successful!"})
         
         return {"text": text, "links": links}
     except Exception as e:
         print(f"Error scraping {url}: {e}")
-        emit('receive_message',
-                {'status': 'error', 'message': f"Error scraping {url}: {e}"})
+        # emit('receive_message',
+        #         {'status': 'error', 'message': f"Error scraping {url}: {e}"})
 
 def has_video_content(url):
     """
