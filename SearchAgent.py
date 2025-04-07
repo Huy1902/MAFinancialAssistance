@@ -2,7 +2,6 @@ import datetime
 import json
 import re
 import time
-from flask_socketio import emit
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -217,7 +216,7 @@ class SearchAgent:
                         raise e
                     time.sleep(self.retry_delay * (attempt + 1))
         else:
-            return "NO"
+            return 
         
     def search(self, query):
         results = DDGS().text(query, max_results=self.max_search_results)
@@ -312,8 +311,7 @@ class SearchAgent:
                             previous_actions.append(f"Searched: {search_results}")
                             previous_actions.append(
                                 f"""Search results: {json.dumps(search_results)}
-                                Select between {self.min_choose_results} to {self.max_choose_results}\
-                                    results to scrape.
+                                Select between {self.min_choose_results} - {self.max_choose_results} results to scrape.
                                 """)
                         else:
                             print("Search results already in previous actions.")
@@ -369,12 +367,13 @@ class SearchAgent:
                     with st.spinner("Executing Python code..."):
                         code = action[16:].strip().removeprefix("```python").removesuffix("```").strip()
                         print(f"Executing Python code: {code}")
-                        st.write(f"Executing Python code: {code}")
+                        st.write(f"Executing Python code:\n```python\n{code}\n```")
                         # emit('receive_message',
                         #     {'status': 'info', 'message': f"Executing Python code:\n```python\n{code}\n```"})
                         try:
                             result = execute_code(code, language='python')
                             print(f"Executed Python code: {code}")
+                            st.write(f"Result:\n```markdown\n{result}\n```")
                             # emit('receive_message', {
                             #  'status': 'info', 'message': f"Result:\n```markdown\n{result}\n```"})
                             previous_actions.append(
@@ -387,7 +386,7 @@ class SearchAgent:
                     with st.spinner("Executing Bash command..."):
                         code = action[14:].strip().removeprefix("```bash").removesuffix("```").strip()
                         print(f"Executing Bash command: {code}")
-                        st.write(f"Executing Bash command: {code}")
+                        st.write(f"Executing Bash code:\n{code}")
                         # emit('receive_message', {
                         #      'status': 'info', 'message': f"Executing Bash code:\n{code}"})
                         try:
@@ -395,7 +394,7 @@ class SearchAgent:
                             print(f"Executed Bash command: {code}")
                             previous_actions.append(
                                 f"Executed Bash command: {code} - Result: {result}")
-                            st.write(f"Executed Bash command: {code} - Result: {result}")
+                            st.write(f"Executed Bash command result: {result}")
                             # emit('receive_message', {
                             #  'status': 'info', 'message': f"Result: {result}"})
                         except Exception as e:

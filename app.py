@@ -66,7 +66,8 @@ if usr_msg := st.chat_input():
         #     # st.write(sources)
         #     pass
         try:
+            agent.task_stopped = False
+            agent.stop_processing = False
             agent.execute(usr_msg)
-            # st.write(agent.global_history)
         except Exception as e:
             st.write(f"Error: {e}")
