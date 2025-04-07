@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-base_model = os.getenv("BASE_MODEL")
+base_model = os.getenv("MODEL")
 base_api = os.getenv("BASE_API")
 base_url = os.getenv("BASE_URL")
 client = OpenAI(
