@@ -121,7 +121,7 @@ def has_video_content(url):
             ])
         )
         return bool(video_elements)
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error checking video content: {e}")
         return False
     
@@ -155,12 +155,12 @@ def download_file(url: str, output_path=None) -> str:
                 
         print("File downloaded successfully at", output_path)
         return f"File downloaded successfully at {output_path}"
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to download file: {e}")
-        return f"Failed to download file: {e}"
     except IOError as e:
         print(f"Error while saving file: {e}")
         return f"Error while saving file: {e}"
+    except Exception as e:
+        print(f"Failed to download file: {e}")
+        return f"Failed to download file: {e}"
 
 # if __name__ == "__main__":
     # url = "https://www.vietcombank.com.vn/"
