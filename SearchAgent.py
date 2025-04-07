@@ -216,7 +216,7 @@ class SearchAgent:
                         raise e
                     time.sleep(self.retry_delay * (attempt + 1))
         else:
-            return "NO"
+            return
         
     def search(self, query):
         results = DDGS().text(query, max_results=self.max_search_results)
