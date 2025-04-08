@@ -22,6 +22,7 @@
 - Streamlit on Colab(Try and success), Kaggle (fail: Idk), Flask for simple(I try this first)
 - Inject to Finance Tracker project?? (Through Rest API)
 
+- Langchain support a good tool (Why don't I use it sooner????:((( )
 ### TODO
 
 - [x] Survey
@@ -35,11 +36,12 @@
   - [x] Install package
   - [x] sys execute
 - [x] Search Engine (Quite simple)
-- [ ] DB Operation
+- [x] DB Operation
+- [x] Re try and fail sql query handler (Use graph and tool from langchain)
 - [ ] Retrieval relevant document
 - [ ] Save relevant document
 - [ ] Embedding
-- [ ] RAG
+- [x] RAG
 - [ ] Finalize answer
 - [ ] Metric
 
