@@ -68,6 +68,11 @@ def handle_send_message(data):
             # Handle any errors during task execution
             emit('receive_message', {'status': 'error', 'message': str(e)})
 
+@app.after_request
+def add_header(response):
+    response.headers['X-Frame-Options'] = 'ALLOW-FROM http://localhost:8080'
+    return response
+
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=8080, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=8081, allow_unsafe_werkzeug=True)
