@@ -7,10 +7,10 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from duckduckgo_search import DDGS
-from util.code_execute import execute_code
-from util.scrap import download_file, scrape
+from SearchAgent.util.code_execute import execute_code
+from SearchAgent.util.scrap import download_file, scrape
 
-class SearchAgent:
+class Searcher():
     def __init__(self):
         load_dotenv(override=True)
         self.tasks = {} # Store tasks and their context
@@ -61,7 +61,7 @@ class SearchAgent:
         # Action definitions
         # Define the actions and their formats
         action_definitions = """
-        You are an AI with tools and actions.
+        You are an AI searcher with tools and actions. Extract from question which one can do
         THE FORMAT FOR ACTIONS IS {ACTION} [ARGUMENTS]
         The following are the actions that fit the above format:
         1. {SEARCH} [QUERY] - Conduct a web search with a clear, focused query. Example: {SEARCH} weather in New York.
@@ -414,7 +414,7 @@ class SearchAgent:
         return len(conclusions) > 0       
 
 if __name__ == "__main__":
-    agent = SearchAgent()
+    agent = Searcher()
     current_task = ""
     while True:
         if current_task:

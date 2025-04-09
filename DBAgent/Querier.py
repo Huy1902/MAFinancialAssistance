@@ -1,16 +1,14 @@
 import uuid
 from langchain_community.utilities import SQLDatabase
-import psycopg2
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
-from GraphNode.query_prompt import get_query_prompt
-from GraphNode.support_function import _print_event
-from GraphNode.tool import define_tool
-from GraphNode.graph import build_graph_from
+from DBAgent.query_prompt import get_query_prompt
+from DBAgent.tool import define_tool
+from DBAgent.graph import build_graph_from
 
 
-class DBAgent:
+class Querier():
     def __init__(self):
         self.init_database()
         self.init_llm()
@@ -49,13 +47,17 @@ class DBAgent:
                 "thread_id": thread_id,
             }
         }
-        events = self.graph.stream(
-            {"messages": [("user", query)]}, config, stream_mode="values"
-        )
-        for event in events:
-            _print_event(event, _printed)
+        # events = self.graph.stream(
+        #     {"messages": [("user", query)]}, config, stream_mode="values"
+        # )
+        # for event in events:
+        #     _print_event(event, _printed)
+        msg = {"messages": [("user", query)]}
+        messages = self.graph.invoke(msg,config)
+        # print(messages['messages'][-1].content)
+        return messages
 
 
 if __name__ == "__main__":
-    agent = DBAgent()
+    agent = Querier()
     agent.execute_query("What is the average amount of money I consume per month? My account ID is 0")

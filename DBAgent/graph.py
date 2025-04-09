@@ -6,11 +6,11 @@ from langchain_community.utilities import SQLDatabase
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import tools_condition
 
-from GraphNode.State import State
-from GraphNode.Assistant import Assistant
-from GraphNode.query_prompt import get_query_prompt
-from GraphNode.support_function import create_tool_node_with_fallback
-from GraphNode.tool import define_tool
+from DBAgent.State import State
+from DBAgent.Assistant import Assistant
+from DBAgent.query_prompt import get_query_prompt
+from DBAgent.support_function import create_tool_node_with_fallback
+from DBAgent.tool import define_tool
 from IPython.display import Image, display
 
 

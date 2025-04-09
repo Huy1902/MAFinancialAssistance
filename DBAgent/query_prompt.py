@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 def get_query_prompt():
   query_gen_system = """
   ROLE:
-  You are an agent designed to interact with a PostgreSQL database. You have access to tools for interacting with the database.
+  You are an agent designed to interact with a PostgreSQL database. You have access to tools for interacting with the database. . Extract from question which one can do.
   GOAL:
   Given an input question, create a syntactically correct PostgreSQL query to run, then look at the results of the query and return the answer.
   INSTRUCTIONS:

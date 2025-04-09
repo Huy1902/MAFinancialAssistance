@@ -1,5 +1,5 @@
 from langchain_core.runnables import Runnable, RunnableConfig
-from GraphNode.State import State
+from DBAgent.State import State
 
 # Assistant
 class Assistant:
