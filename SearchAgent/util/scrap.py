@@ -15,6 +15,7 @@ import os
 
 from tqdm import tqdm
 
+
 load_dotenv(override=True)
 
 
@@ -89,14 +90,14 @@ def scrape(url) -> dict[str, dict[str, Any] | str] | str:
             if a.text.strip()
         }
         print(f"Scraped {len(links)} links from {url}")
-        emit('receive_message', {'status': 'info',
-             'message': "Scrape successful!"})
+        # emit('receive_message', {'status': 'info',
+        #      'message': "Scrape successful!"})
         
         return {"text": text, "links": links}
     except Exception as e:
         print(f"Error scraping {url}: {e}")
-        emit('receive_message',
-                {'status': 'error', 'message': f"Error scraping {url}: {e}"})
+        # emit('receive_message',
+        #         {'status': 'error', 'message': f"Error scraping {url}: {e}"})
 
 def has_video_content(url):
     """
@@ -121,7 +122,7 @@ def has_video_content(url):
             ])
         )
         return bool(video_elements)
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Error checking video content: {e}")
         return False
     
@@ -155,12 +156,12 @@ def download_file(url: str, output_path=None) -> str:
                 
         print("File downloaded successfully at", output_path)
         return f"File downloaded successfully at {output_path}"
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to download file: {e}")
-        return f"Failed to download file: {e}"
     except IOError as e:
         print(f"Error while saving file: {e}")
         return f"Error while saving file: {e}"
+    except Exception as e:
+        print(f"Failed to download file: {e}")
+        return f"Failed to download file: {e}"
 
 # if __name__ == "__main__":
     # url = "https://www.vietcombank.com.vn/"

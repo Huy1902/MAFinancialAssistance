@@ -1,12 +1,12 @@
 from DBAgent.Querier import Querier
-from SearchAgent.Searcher import Searcher
 import os
 import sys
 import uuid
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
-from SuperviseAgent.buildGraph import GraphBuilder
+from SuperviseAgent.GraphBuilder import GraphBuilder
+from langchain_core.messages import HumanMessage
 
 sys.path.append(os.path.abspath(
     "/home/lumasty/Documents/GitHub/MAFinancialAssistance"))
@@ -21,8 +21,7 @@ class Supervisor():
         llm = ChatGoogleGenerativeAI(
             model=base_model, google_api_key=base_api, temperature=0)
         querier = Querier()
-        searcher = Searcher()
-        self.graph = GraphBuilder(llm, querier, searcher).build_graph()
+        self.graph = GraphBuilder(llm, querier).build_graph()
 
     def execute(self, query):
         thread_id = str(uuid.uuid4())
@@ -32,7 +31,12 @@ class Supervisor():
                 "thread_id": thread_id,
             }
         }
-        msg = {"messages": [("user", query)]}
-        messages = self.graph.invoke(msg, config)
+        initial_state = {
+            "messages": [HumanMessage(content=query)],
+            "searched": False,
+            "queried": False
+        }
+        # msg = {"messages": [("user", query)]}
+        messages = self.graph.invoke(initial_state)
         return messages['messages'][-1].content
 

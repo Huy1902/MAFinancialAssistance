@@ -7,7 +7,7 @@ from flask_socketio import SocketIO, emit
 from langchain_google_genai import ChatGoogleGenerativeAI
 from SearchAgent.Searcher import Searcher
 from DBAgent.Querier import Querier
-from SuperviseAgent.buildGraph import GraphBuilder
+from SuperviseAgent.GraphBuilder import GraphBuilder
 
 load_dotenv(override=True)
 base_model = os.getenv("MODEL")

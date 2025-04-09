@@ -21,6 +21,7 @@ def define_tool(db, llm):
 	- Using the proper columns for joins
 
 	If there are any of the above mistakes, rewrite the query. If there are no mistakes, just reproduce the original query.
+    If prompt is not an question, end process.
 
 	Execute the correct query with the appropriate tool."""
     query_check_prompt = ChatPromptTemplate.from_messages(
@@ -37,7 +38,8 @@ def define_tool(db, llm):
     # Query result checking
     query_result_check_system = """You are grading the result of a SQL query from a DB. 
   - Check that the result is not empty.
-  - If it is empty, instruct the system to re-try!"""
+  - If it is empty, instruct the system to re-try!
+  - If prompt is not an question, end process."""
     query_result_check_prompt = ChatPromptTemplate.from_messages(
         [("system", query_result_check_system), ("user", "{query_result}")])
     query_result_check = query_result_check_prompt | llm
