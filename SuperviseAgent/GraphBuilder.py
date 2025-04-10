@@ -15,15 +15,10 @@ tavily_tool = TavilySearchResults(max_results=5)
 
 from DBAgent.Querier import Querier
 from SearchAgent.Searcher import Searcher
-
-
-# Initialize Querier and Searcher
-querier = Querier()
-searcher = Searcher()
-
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
+from langchain_ollama import ChatOllama
 
 
 load_dotenv(override=True)
@@ -32,9 +27,15 @@ base_model = os.getenv("MODEL")
 base_api = os.getenv("BASE_API")
 base_url = os.getenv("BASE_URL")
 
-    
 
-llm = ChatGoogleGenerativeAI(model=base_model, google_api_key=base_api, temperature=0)
+# llm = ChatGoogleGenerativeAI(model=base_model, google_api_key=base_api, temperature=0)
+llm = ChatOllama(model="qwen2.5:0.5b")
+
+# Initialize Querier and Searcher
+querier = Querier(llm)
+searcher = Searcher()
+
+
 
 
 members = ["querier", "researcher"]
@@ -43,12 +44,13 @@ members = ["querier", "researcher"]
 options = members + ["FINISH"]
 
 system_prompt = (
-    "You are a supervisor tasked with managing a conversation between the"
-    f" following workers: {members}. Given the following user request,"
-    " respond with the worker to act next. Each worker will perform a"
-    " task and respond with their results and status. When finished,"
-    " respond with FINISH. Always finish "
+    f"""You are a supervisor managing a conversation between the following workers: {members}
+    querier (handles PostgreSQL database interactions) and researcher (performs internet searches).
+    When a user request arrives, analyze it and route the task to the appropriate worker. 
+    Each worker will execute their designated task and respond with their results and status. 
+    Once all tasks are complete, respond with FINISH."""
 )
+
 
 
 class Router(TypedDict):
@@ -72,18 +74,20 @@ class GraphBuilder():
         self.conversation = ""
 
     def supervisor_node(self, state: State) -> Command[Literal[*members, "__end__"]]:
-        messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": self.conversation}] + state["messages"]
-        response = self.llm.with_structured_output(Router).invoke(messages)
-        goto = response["next"]
-        
-        # No constrain for researcher
-        if goto == "FINISH" or (state["queried"] is True or state["searched"] is True):
-            return Command(goto=END, update={"next": goto})
-        
-        # if state["queried"]:
-        #     goto = "researcher"
+        with st.spinner("Routing"):
+            messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": self.conversation}] + state["messages"]
+            response = self.llm.with_structured_output(Router).invoke(messages)
+            
+            goto = response["next"]
+            st.info(f"go to: {goto}")
+            # No constrain for researcher
+            if goto == "FINISH" or (state["queried"] is True or state["searched"] is True):
+                return Command(goto=END, update={"next": goto})
+            
+            # if state["queried"]:
+            #     goto = "researcher"
 
         return Command(goto=goto, update={"next": goto})
 
@@ -118,6 +122,8 @@ class GraphBuilder():
             },
             goto="supervisor",
         )
+        
+    
 
     def build_graph(self):
         builder = StateGraph(State)

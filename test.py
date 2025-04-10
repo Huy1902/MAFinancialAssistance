@@ -1,4 +1,16 @@
-from DBAgent.Querier import Querier
-if __name__ == "__main__":
-    agent = Querier()
-    agent.execute_query("What is the average amount of money I consume per month? My account ID is 0")
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama.llms import OllamaLLM
+
+llm = OllamaLLM(model="qwen2.5:0.5b")
+
+
+template = """Question: {question}
+
+Answer: Let's think step by step."""
+
+prompt = ChatPromptTemplate.from_template(template)
+
+chain = prompt | llm
+
+chain.invoke({"question": "What is LangChain?"})

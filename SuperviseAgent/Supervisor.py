@@ -3,8 +3,7 @@ import os
 import sys
 import uuid
 
-from langchain_google_genai import ChatGoogleGenerativeAI
-from dotenv import load_dotenv
+
 from SuperviseAgent.GraphBuilder import GraphBuilder
 from langchain_core.messages import HumanMessage
 
@@ -13,14 +12,8 @@ sys.path.append(os.path.abspath(
 
 
 class Supervisor():
-    def __init__(self):
-        load_dotenv(override=True)
-        base_model = os.getenv("MODEL")
-        base_api = os.getenv("BASE_API")
-
-        llm = ChatGoogleGenerativeAI(
-            model=base_model, google_api_key=base_api, temperature=0)
-        querier = Querier()
+    def __init__(self, llm):
+        querier = Querier(llm)
         self.graph = GraphBuilder(llm, querier).build_graph()
 
     def execute(self, query):
@@ -39,4 +32,3 @@ class Supervisor():
         # msg = {"messages": [("user", query)]}
         messages = self.graph.invoke(initial_state)
         return messages['messages'][-1].content
-
